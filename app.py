@@ -17,78 +17,32 @@ if not api_key:
 # Initialize the Client (Gemini 3 requires this new client)
 client = genai.Client(api_key=api_key)
 
-# 2. Page Configuration
+# 2. Page Configuration (Classic AARP Style)
 st.set_page_config(page_title="Medicaid Benefits Navigation", page_icon="🛑", layout="centered")
 
-# 3. Custom CSS for AARP Styling & Visibility Fixes
+# 3. Custom CSS for "Old School" AARP Look
 st.markdown("""
     <style>
-    /* 1. Global Reset to ensure Light Mode colors even if user system is Dark */
-    .stApp {
-        background-color: #FFFFFF;
-        font-family: 'Arial', sans-serif;
-    }
-    
-    /* 2. Text Colors - Force Dark Gray globally */
-    p, div, h1, h2, h3, h4, h5, h6, span, label, li {
-        color: #333333 !important;
-    }
-
-    /* 3. Sidebar Specifics - Fix for "White Text on White BG" */
-    section[data-testid="stSidebar"] {
-        background-color: #f4f4f4 !important; /* Light Gray Background */
-        border-right: 2px solid #E60000;
-    }
-    
-    /* Force sidebar text to be black */
-    section[data-testid="stSidebar"] * {
-        color: #000000 !important;
-    }
-    
-    /* 4. AARP Red Highlights */
-    h1, h2, h3 {
-        color: #E60000 !important; /* AARP Red Headers */
-    }
-    
-    /* Custom Text Selection (When you highlight text with mouse) */
-    ::selection {
-        background: #E60000; /* Red Background */
-        color: #FFFFFF !important; /* White Text */
-    }
-
-    /* 5. Chat Bubbles */
-    div[data-testid="stChatMessageContent"] {
-        background-color: #f9f9f9;
-        border: 1px solid #ddd;
-        border-radius: 8px;
-    }
-    
-    /* Button Styling */
-    div.stButton > button {
-        background-color: #E60000;
-        color: white !important;
-        border: none;
-        font-weight: bold;
-    }
-    div.stButton > button:hover {
-        background-color: #cc0000; /* Darker red on hover */
-        color: white !important;
-    }
+    .stApp { background-color: #FFFFFF; font-family: 'Arial', sans-serif; color: #333333; }
+    h1, h2, h3 { color: #E60000 !important; font-weight: bold; }
+    .stChatMessage { border-radius: 5px !important; border: 1px solid #ddd; }
+    div[data-testid="stChatMessageContent"] { background-color: #f9f9f9; color: #000; }
+    section[data-testid="stSidebar"] { background-color: #f4f4f4; border-right: 2px solid #E60000; }
+    div.stButton > button { background-color: #E60000; color: white; border: none; font-weight: bold; }
     </style>
 """, unsafe_allow_html=True)
 
 # 4. Header Section
 col1, col2 = st.columns([1, 4])
 with col1:
-    # Use the robot emoji as placeholder
-    st.markdown("<div style='font-size: 40px;'>🤖</div>", unsafe_allow_html=True) 
+    st.markdown("🤖", unsafe_allow_html=True) 
 with col2:
     st.title("Benefits Navigator Assistant")
-    st.markdown(f"**AARP Foundation | Pennsylvania Pilot**")
+    st.markdown(f"**AARP Foundation | Pennsylvania Pilot | Powered by Gemini 3 Flash**")
 
 st.divider()
 
-# 5. Multimodal File Handling
+# 5. Multimodal File Handling (The "Brain")
 @st.cache_resource
 def load_docs_to_gemini():
     """
@@ -108,12 +62,13 @@ def load_docs_to_gemini():
         status_bar.write(f"Indexing: {file_name}")
         
         try:
+            # Gemini 3 still needs MIME type explicit for PDFs in the SDK
             with open(path, "rb") as f:
                 sample_file = client.files.upload(
                     file=f, 
                     config={
                         'display_name': file_name,
-                        'mime_type': 'application/pdf' # Strict MIME type check
+                        'mime_type': 'application/pdf'
                     }
                 )
             uploaded_files.append(sample_file)
@@ -160,7 +115,7 @@ if prompt := st.chat_input("Enter eligibility question here..."):
 
                 # Call Gemini 3 Flash Preview
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash", # Use 2.0 Flash or 1.5 Flash for stability if 3-preview is glitchy
+                    model="gemini-3-flash-preview", 
                     contents=content_payload
                 )
                 
@@ -178,7 +133,7 @@ with st.sidebar:
     st.markdown("### Loaded Documents")
     if docs_context:
         for f in docs_context:
-            st.markdown(f"📄 **{f.display_name}**") # Bold for better visibility
+            st.text(f"📄 {f.display_name}")
     else:
         st.warning("No documents found.")
     
