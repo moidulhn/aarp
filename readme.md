@@ -104,7 +104,7 @@ The app will open in your default browser.
 - Extracts structured information from:
   - Tables
   - Checkboxes
-  - Complex PDF layouts
+  - Complex PDF structures
 
 ---
 
