@@ -1,7 +1,7 @@
 ````markdown
 # AARP Benefits Navigator
 
-A multimodal AI assistant for navigating Pennsylvania Medicaid policy documents.  
+A multimodal AI assistant for navigating Medicaid policy documents, starting with the state of Pennsylvania.  
 Powered by **Gemini 3.0 Flash Preview**, the system analyzes text, tables, and form elements (including checkboxes) within PDF files.
 
 This README serves as a quick-start handover guide for collaborators. The application should be runnable in under five minutes.
@@ -22,7 +22,7 @@ This README serves as a quick-start handover guide for collaborators. The applic
 ### Clone the Repository
 
 ```bash
-git clone <your-repo-link>
+git clone https://github.com/moidulhn/aarp.git
 cd aarp-pilot-demo
 ```
 
@@ -60,7 +60,7 @@ Create a file named `.env` in the project root directory:
 GOOGLE_API_KEY=your_actual_key_here
 ```
 
-Replace `your_actual_key_here` with your actual Gemini API key.
+Replace `your_actual_key_here` with your actual Gemini API key. Ensure that the key is enclosed within single quotes.
 
 ---
 
@@ -72,7 +72,7 @@ Place any PDF policy manuals (e.g., *Appendix B*) inside the:
 docs/
 ```
 
-directory.
+folder.
 
 On startup, the application automatically scans and indexes all PDFs in this folder.
 
@@ -105,13 +105,6 @@ The app will open in your default browser.
   - Tables
   - Checkboxes
   - Complex PDF layouts
-
-### AARP-Aligned UI Design
-
-- Red-and-white color palette
-- Clean, professional interface
-- No emojis
-- Accessibility-focused design
 
 ---
 
