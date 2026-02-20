@@ -13,6 +13,7 @@ This README serves as a quick-start handover guide for collaborators. The applic
 - **Google Gemini API Key**  
   Obtain a free API key from:  
   https://aistudio.google.com/app/apikey
+  Note - If you face errors obtaining an API key, try using your personal email as some organizations have limits on using APIs which sometimes causes errors.
 
 ---
 
