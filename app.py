@@ -75,38 +75,64 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# -----------------------------
+# STATE SELECTION CONFIG
+# -----------------------------
+STATE_MAP = {
+    "Pennsylvania": "PA",
+    "Alabama": "AL",
+}
+
 # 4. Header Section
 col1, col2 = st.columns([1, 4])
 with col1:
-    # Professional Text Placeholder (No Robot Emoji)
     st.markdown("<div style='font-size: 20px; font-weight: bold; color: #E60000;'>[AI]</div>", unsafe_allow_html=True)
 with col2:
     st.title("Benefits Navigator")
-    st.markdown(f"**AARP Foundation | Pennsylvania Pilot**")
+    st.markdown("**AARP Foundation | Multi-State Pilot**")
 
 st.divider()
 
-# 5. Multimodal File Handling (Smart Version - Prevents "Stuck" Spinner)
+# -----------------------------
+# STATE SELECTOR
+# -----------------------------
+selected_state_name = st.selectbox(
+    "Select the state where the person receiving services lives:",
+    options=list(STATE_MAP.keys()),
+    index=0
+)
+selected_state_abbr = STATE_MAP[selected_state_name]
+
+# 5. Multimodal File Handling
 @st.cache_resource
-def load_docs_to_gemini():
+def load_docs_to_gemini(state_abbr):
     """
-    Scans 'docs/' folder. Checks if files are already uploaded to Gemini 
-    to avoid re-uploading and hitting rate limits.
+    Scans 'docs/' folder, filters PDFs by state abbreviation using the first
+    2 characters of the filename, then checks if files are already uploaded
+    to Gemini to avoid re-uploading.
+    
+    Example filenames:
+      PA_waiver1.pdf
+      AL_familycaregiver.pdf
     """
     uploaded_files = []
-    doc_paths = glob.glob("docs/*.pdf")
+    all_doc_paths = glob.glob("docs/*.pdf")
+
+    # Filter to files whose first two filename chars match state abbreviation
+    doc_paths = [
+        path for path in all_doc_paths
+        if os.path.basename(path)[:2].upper() == state_abbr.upper()
+    ]
 
     if not doc_paths:
-        st.sidebar.error("No PDF files found in 'docs/' folder.")
+        st.sidebar.error(f"No PDF files found in 'docs/' folder for state: {state_abbr}")
         return []
 
-    status_bar = st.sidebar.status("System Status: Connecting to Gemini...")
-    
+    status_bar = st.sidebar.status(f"System Status: Connecting to Gemini for {state_abbr}...")
+
     # Step 1: List files already on Google's server
-    # We create a dictionary map: {'filename.pdf': file_object}
     existing_files_map = {}
     try:
-        # We list existing files to see what is already there
         for f in client.files.list():
             existing_files_map[f.display_name] = f
     except Exception as e:
@@ -119,32 +145,37 @@ def load_docs_to_gemini():
         
         try:
             if file_name in existing_files_map:
-                # File exists! Skip upload and just use it.
                 status_bar.write(f"✅ Found cached: {file_name}")
                 uploaded_files.append(existing_files_map[file_name])
             else:
-                # File is new! Upload it.
                 status_bar.write(f"⬆️ Uploading: {file_name}...")
                 with open(path, "rb") as f:
                     sample_file = client.files.upload(
-                        file=f, 
+                        file=f,
                         config={
-                            'display_name': file_name,
-                            'mime_type': 'application/pdf' # Crucial for Gemini 3
+                            "display_name": file_name,
+                            "mime_type": "application/pdf"
                         }
                     )
                 uploaded_files.append(sample_file)
-                # Sleep briefly to be kind to the API rate limit
                 time.sleep(1)
                 
         except Exception as e:
             st.sidebar.error(f"Failed to load {file_name}: {e}")
             
-    status_bar.update(label="System Ready", state="complete", expanded=False)
+    status_bar.update(label=f"System Ready ({state_abbr})", state="complete", expanded=False)
     return uploaded_files
 
-# Load the files
-docs_context = load_docs_to_gemini()
+# Load only the selected state's files
+docs_context = load_docs_to_gemini(selected_state_abbr)
+
+# Optional: clear conversation when state changes
+if "selected_state_abbr" not in st.session_state:
+    st.session_state.selected_state_abbr = selected_state_abbr
+elif st.session_state.selected_state_abbr != selected_state_abbr:
+    st.session_state.selected_state_abbr = selected_state_abbr
+    st.session_state.messages = []
+    st.rerun()
 
 # 6. Initialize Chat History
 if "messages" not in st.session_state:
@@ -166,19 +197,18 @@ if prompt := st.chat_input("Enter eligibility question here..."):
             message_placeholder.markdown("Analyzing policy documents...")
             
             try:
-                # Prepare content
                 content_payload = [
-                    "You are a strict Medicaid Eligibility Assistant. Use the attached policy documents to answer.",
+                    f"You are a strict Medicaid Eligibility Assistant for {selected_state_name} ({selected_state_abbr}).",
+                    "Use only the attached policy documents to answer.",
                     "Cite the specific document name or section when possible.",
                     "If the answer depends on a checked box, explicitly state that.",
+                    f"Only rely on documents for {selected_state_name}.",
                 ]
                 content_payload.extend(docs_context)
                 content_payload.append(prompt)
 
-                # Generate Content 
-                # Using Gemini 3 Flash Preview as requested
                 response = client.models.generate_content(
-                    model="gemini-3-flash-preview", 
+                    model="gemini-3-flash-preview",
                     contents=content_payload
                 )
                 
@@ -186,32 +216,34 @@ if prompt := st.chat_input("Enter eligibility question here..."):
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
                 
             except Exception as e:
-                # Graceful Error Handling
                 if "429" in str(e):
                     message_placeholder.warning("High traffic. Retrying in 5 seconds...")
                     time.sleep(5)
                     try:
                         response = client.models.generate_content(
-                            model="gemini-3-flash-preview", 
+                            model="gemini-3-flash-preview",
                             contents=content_payload
                         )
                         message_placeholder.markdown(response.text)
                         st.session_state.messages.append({"role": "assistant", "content": response.text})
-                    except:
+                    except Exception:
                         message_placeholder.error("System busy. Please try again in a moment.")
                 else:
                     message_placeholder.error(f"An error occurred: {e}")
     else:
-        st.error("System Error: No documents loaded.")
+        st.error(f"System Error: No documents loaded for {selected_state_name}.")
 
 # Sidebar Info
 with st.sidebar:
+    st.markdown("### Selected State")
+    st.markdown(f"**{selected_state_name} ({selected_state_abbr})**")
+
     st.markdown("### Loaded Documents")
     if docs_context:
         for f in docs_context:
             st.markdown(f"- {f.display_name}")
     else:
-        st.warning("No documents found.")
+        st.warning("No matching documents found.")
     
     st.markdown("---")
     st.markdown("**Control Panel**")
