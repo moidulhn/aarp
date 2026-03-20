@@ -113,6 +113,8 @@ COVERAGE_OPTIONS = [
     "Other",
 ]
 
+PLACEHOLDER = "-- Select --"
+
 # -----------------------------
 # HEADER
 # -----------------------------
@@ -147,7 +149,6 @@ st.subheader("Client Intake")
 
 with st.form("client_intake_form"):
     st.markdown("### Current healthcare coverage")
-    current_coverage = st.selectbox("Current healthcare coverage", COVERAGE_OPTIONS)
     medicaid_status = st.radio("Is the person on Medicaid?", ["Yes", "No"])
     medicaid_eligible = None
     if medicaid_status == "No":
@@ -159,10 +160,10 @@ with st.form("client_intake_form"):
         options=list(STATE_MAP.keys()),
         index=0
     )
-    selected_county = st.selectbox(
-        "County",
-        options=COUNTY_MAP[selected_state_name]
-    )
+    # selected_county = st.selectbox(
+    #     "County",
+    #     options=COUNTY_MAP[selected_state_name]
+    # )
     congregate_setting = st.radio(
         "Does the person live in an assisted living facility or a group home?",
         ["Yes", "No", "Unknown"]
@@ -197,12 +198,12 @@ if submitted:
         all_conditions.append(f"Other: {other_condition_text.strip()}")
 
     st.session_state.intake_data = {
-        "current_coverage": current_coverage,
+#        "current_coverage": current_coverage,
         "medicaid_status": medicaid_status,
         "medicaid_eligible": medicaid_eligible,
         "state_name": selected_state_name,
         "state_abbr": selected_state_abbr,
-        "county": selected_county,
+#        "county": selected_county,
         "congregate_setting": congregate_setting,
         "age": age,
         "conditions": all_conditions,
@@ -294,9 +295,8 @@ def build_case_summary(data):
 
     summary = f"""
 Case Summary:
-- Current healthcare coverage: {data['current_coverage']}
 - {medicaid_line}
-- Location: {data['county']} County, {data['state_name']} ({data['state_abbr']})
+- Location: {data['state_name']})
 - Lives in assisted living facility or group home: {data['congregate_setting']}
 - Age: {data['age']}
 - Conditions: {conditions_text}
