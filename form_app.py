@@ -68,8 +68,12 @@ st.markdown("""
 # STATE CONFIG
 # -----------------------------
 STATE_MAP = {
-    "Pennsylvania": "PA",
     "Alabama": "AL",
+    "Iowa": "IA",
+    "Ohio": "OH",
+    "Pennsylvania": "PA",
+    "South Dakota": "SD"
+
 }
 
 # Minimal county lists for testing
@@ -296,7 +300,7 @@ def build_case_summary(data):
     summary = f"""
 Case Summary:
 - {medicaid_line}
-- Location: {data['state_name']})
+- Location: {data['state_name']}
 - Lives in assisted living facility or group home: {data['congregate_setting']}
 - Age: {data['age']}
 - Conditions: {conditions_text}
