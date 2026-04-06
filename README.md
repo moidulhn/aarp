@@ -18,6 +18,8 @@ You will need two free API keys to run the visual parsing and reasoning models:
 
 *Note: If you face errors obtaining a key, try using a personal email address, as some enterprise organizations restrict API generation.*
 
+  Note - If you face errors obtaining an API key, try using your personal email as some organizations have limits on using APIs which sometimes causes errors.
+
 ---
 
 ## 2. Installation
