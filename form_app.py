@@ -101,11 +101,9 @@ CONDITION_OPTIONS = [
 RELATIONSHIP_OPTIONS = [
     "Spouse",
     "Legal guardian",
-    "Parent",
-    "Child",
-    "Sibling",
-    "Other family member",
-    "Friend / non-family caregiver",
+    "Adult child",
+    "Other relative",
+    "Friend",
     "Other",
 ]
 
