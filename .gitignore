@@ -5,3 +5,4 @@ __pycache__/
 docs/
 app-old.py
 app-old2.py
+*.pdf
