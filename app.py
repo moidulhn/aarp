@@ -1,3 +1,4 @@
+import re
 import streamlit as st
 import os
 from dotenv import load_dotenv
@@ -43,7 +44,6 @@ st.markdown("""
 # STATE CONFIG
 # -----------------------------
 STATE_MAP = {
-    "Alabama": "AL",
     "Iowa": "IA",
     "Ohio": "OH",
     "Pennsylvania": "PA",
@@ -74,6 +74,41 @@ HOUSING_OPTIONS = [
     "I do not live with the person but I live in the same state",
     "I do not live with the person and I do not live in the same state"
 ]
+
+MEDICAID_OPTIONS = [
+    "Yes, they are enrolled in Medicaid", 
+    "Yes, they are eligble for Mediciad but they are not enrolled",
+    "No, they are not eligible for Medicaid"
+]
+
+MEDICAID_STATUS_MAP = {
+    "Yes, they are enrolled in Medicaid": "Enrolled",
+    "Yes, they are eligble for Mediciad but they are not enrolled": "Eligible but not enrolled\nNOTE: The care recipient must be enrolled in Medicaid in order to qualify for a waiver.",
+    "No, they are not eligible for Medicaid": "Not eligible"
+}
+
+WAIVER_NAME_MAP = {
+    'IA0213R07': 'IA Home and Community Based Services - AIDS/HIV Waiver',
+    'IA0242R07': 'IA Home and Community Based Services - Intellectual Disabilities (ID) Waiver',
+    'IA0299R06': 'IA Home and Community Based Services - Brain Injury (BI) Waiver',
+    'IA0345R05': 'IA Home and Community Based Services - Physical Disability Waiver',
+    'IA4111R08': 'IA Home and Community Based Services - Health and Disability (HD) Waiver',
+    'IA4155R07': 'IA Home and Community Based Services - Elderly Waiver',
+    'OH0198R07': 'OH PASSPORT Waiver',
+    'OH0231R06': 'OH Individual Options Waiver',
+    'SD0338R05': 'SD Family Support 360 Waiver',
+    'SD0044R09': 'SD CHOICES Waiver',
+    'SD0264R06': 'SD Assistive Daily Living Services Waiver',
+    'SD0189R07': 'SD Home and Community-Based Options and Person Centered Excellence (HOPE) Waiver',
+    'PA0386R05': 'PA Community Health Choices Waiver',
+    'PA0235R06': 'PA OBRA Waiver',
+}
+
+def map_waiver_names(text: object) -> str:
+    result: str = str(text) if text is not None else ""
+    for waiver_id, friendly_name in WAIVER_NAME_MAP.items():
+        result = re.sub(re.escape(waiver_id) + r'\d*', friendly_name, result, flags=re.IGNORECASE)
+    return result
 
 # 4. Header Section
 col1, col2 = st.columns([1, 4])
@@ -152,7 +187,8 @@ st.subheader("Client Intake")
 
 with st.form("client_intake_form"):
     st.markdown("### Current healthcare coverage")
-    medicaid_status = st.radio("Is the person on or eligible for Medicaid?", ["Yes", "No"])
+    medicaid_status = st.radio("Is the person on or eligible for Medicaid?", 
+                               MEDICAID_OPTIONS)
     
     st.markdown("### Location")
     selected_state_name = st.selectbox("State", options=list(STATE_MAP.keys()), index=0)
@@ -180,12 +216,14 @@ with st.form("client_intake_form"):
 if submitted:
     selected_state_abbr = STATE_MAP[selected_state_name]
 
+    medicaid_status_message = MEDICAID_STATUS_MAP[medicaid_status]
+
     all_conditions = selected_conditions.copy()
     if other_condition_checked and other_condition_text.strip():
         all_conditions.append(f"Other: {other_condition_text.strip()}")
 
     st.session_state.intake_data = {
-        "medicaid_status": medicaid_status,
+        "medicaid_status": medicaid_status_message,
         "state_name": selected_state_name,
         "state_abbr": selected_state_abbr,
         "congregate_setting": congregate_setting,
@@ -209,7 +247,7 @@ def build_case_summary(data):
     conditions_text = ", ".join(data["conditions"]) if data["conditions"] else "None reported"
 
     return f"""Case Summary:
-- Is the person on or eligible for Medicaid? {data['medicaid_status']}.
+- Medicaid status: {data['medicaid_status']}
 - Location: {data['state_name']}
 - Lives in assisted living facility or group home: {data['congregate_setting']}
 - Age: {data['age']}
@@ -263,7 +301,7 @@ if st.session_state.intake_submitted:
             with st.spinner("Reviewing waiver documents..."):
                 eligibility_prompt = build_eligibility_query(st.session_state.intake_data)
                 response = query_engine.query(eligibility_prompt)
-                st.markdown(response.response)
+                st.markdown(map_waiver_names(str(getattr(response, "response", "") or "")))
 
 # -----------------------------
 # CHAT HISTORY + FOLLOW-UP
@@ -290,9 +328,10 @@ if prompt := st.chat_input("Enter eligibility question here..."):
                     f"{case_summary}\n\nQuestion: {prompt}"
                 )
                 response = query_engine.query(full_prompt)
-                st.markdown(response.response)
+                mapped = map_waiver_names(response.response)
+                st.markdown(mapped)
 
-        st.session_state.messages.append({"role": "assistant", "content": response.response})
+        st.session_state.messages.append({"role": "assistant", "content": mapped})
     else:
         st.error("Please complete the intake form first.")
 
