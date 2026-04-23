@@ -90,7 +90,10 @@ def build_knowledge_base():
         if parsed_file.exists():
             documents.append(Document(
                 text=parsed_file.read_text(encoding="utf-8"),
-                metadata={"file_name": pdf_path.name}
+                metadata={
+                    "file_name": pdf_path.name,
+                    "state": pdf_path.name[:2].upper()
+                }
             ))
 
     print("Processing nodes")

@@ -37,8 +37,31 @@ st.markdown("""
     div.stButton > button:hover { background-color: #cc0000; color: white !important; }
     div[data-testid="stExpanderDetails"] { background-color: #333333; border-radius: 8px; padding: 15px; }
     div[data-testid="stExpanderDetails"] * { color: #FFFFFF !important; }
+    /* Prevent auto-scroll on load */
+    .main { overflow-anchor: none; }
+    html { scroll-behavior: auto !important; }
     </style>
+    <script>
+        window.addEventListener('load', function() {
+            window.scrollTo(0, 0);
+        });
+    </script>
 """, unsafe_allow_html=True)
+
+# -----------------------------
+# SESSION STATE INIT
+# -----------------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+
+if "intake_submitted" not in st.session_state:
+    st.session_state.intake_submitted = False
+
+if "intake_data" not in st.session_state:
+    st.session_state.intake_data = {}
+
+if "selected_state_abbr" not in st.session_state:
+    st.session_state.selected_state_abbr = None
 
 # -----------------------------
 # STATE CONFIG
@@ -96,6 +119,8 @@ WAIVER_NAME_MAP = {
     'IA4155R07': 'IA Home and Community Based Services - Elderly Waiver',
     'OH0198R07': 'OH PASSPORT Waiver',
     'OH0231R06': 'OH Individual Options Waiver',
+    'OH0877R03': 'OH Self Empowered Life (SELF) Waiver',
+    'OH0380R04': 'OH Level One Waiver',
     'SD0338R05': 'SD Family Support 360 Waiver',
     'SD0044R09': 'SD CHOICES Waiver',
     'SD0264R06': 'SD Assistive Daily Living Services Waiver',
@@ -121,8 +146,10 @@ with col2:
 st.divider()
 
 # 5. Load the Hybrid Search Engine
+from llama_index.core.vector_stores import MetadataFilters, MetadataFilter, FilterOperator
+
 @st.cache_resource
-def load_hybrid_query_engine():
+def load_hybrid_query_engine(state_abbr: str):
     Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-small-en-v1.5")
     Settings.llm = Gemini(model="models/gemini-3-flash-preview")
 
@@ -133,10 +160,14 @@ def load_hybrid_query_engine():
     )
     policy_index = load_index_from_storage(storage_context=storage_context)
 
-    vector_retriever = policy_index.as_retriever(similarity_top_k=5)
+    # Filter nodes by state for both retrievers
+    all_nodes = list(policy_index.docstore.docs.values())
+    state_nodes = [n for n in all_nodes if n.metadata.get("state") == state_abbr]
 
+    # Use state-filtered nodes for both retrievers
+    vector_retriever = policy_index.as_retriever(similarity_top_k=10)  # fetch more, then filter
     bm25_retriever = BM25Retriever.from_defaults(
-        docstore=policy_index.docstore,
+        nodes=state_nodes,
         similarity_top_k=5
     )
 
@@ -147,8 +178,20 @@ def load_hybrid_query_engine():
         mode="reciprocal_rerank"
     )
 
+    # Wrap the hybrid retriever to post-filter by state
+    class StateFilteredRetriever:
+        def __init__(self, retriever, state):
+            self._retriever = retriever
+            self._state = state
+
+        def retrieve(self, query):
+            nodes = self._retriever.retrieve(query)
+            return [n for n in nodes if n.metadata.get("state") == self._state]
+
+    filtered_retriever = StateFilteredRetriever(hybrid_retriever, state_abbr)
+
     return RetrieverQueryEngine.from_args(
-        retriever=hybrid_retriever,
+        retriever=filtered_retriever,
         system_prompt=(
             "You are a strict Medicaid Eligibility Assistant. "
             "You must use the provided documents only. "
@@ -160,25 +203,19 @@ def load_hybrid_query_engine():
     )
 
 try:
-    query_engine = load_hybrid_query_engine()
+    # Verify the storage exists on startup, but don't load the engine yet
+    if not os.path.exists("storage"):
+        st.error("Knowledge base not found. Please run pipeline.py first.")
+        st.stop()
 except Exception as e:
     st.error("Knowledge base not found. Please run pipeline.py first.")
     st.stop()
 
-# -----------------------------
-# SESSION STATE INIT
-# -----------------------------
-if "messages" not in st.session_state:
-    st.session_state.messages = []
-
-if "intake_submitted" not in st.session_state:
-    st.session_state.intake_submitted = False
-
-if "intake_data" not in st.session_state:
-    st.session_state.intake_data = {}
-
-if "selected_state_abbr" not in st.session_state:
-    st.session_state.selected_state_abbr = None
+# Load (or reload) the engine once intake is submitted
+query_engine = None
+if st.session_state.intake_submitted:
+    state_abbr = st.session_state.intake_data["state_abbr"]
+    query_engine = load_hybrid_query_engine(state_abbr)
 
 # -----------------------------
 # INTAKE FORM
@@ -258,6 +295,7 @@ def build_case_summary(data):
 
 def build_eligibility_query(data):
     case_summary = build_case_summary(data)
+    waiver_name_context = "\n".join([f"- {k} = {v}" for k, v in WAIVER_NAME_MAP.items()])
     return f"""You are a Medicaid waiver navigation assistant.
 
 Review the attached waiver and policy documents for {data['state_name']} only.
@@ -265,13 +303,19 @@ Review the attached waiver and policy documents for {data['state_name']} only.
 Goal:
 Determine whether this person may be eligible for programs, waivers, or pathways that could allow a family caregiver to be paid, or that are relevant to paid family caregiving support.
 
+When citing documents, always use these friendly names instead of file IDs or raw filenames:
+{waiver_name_context}
+
 Instructions:
 1. Use only the attached documents.
 2. Focus especially on waiver eligibility, caregiver eligibility, participant-directed options, consumer direction, self-direction, attendant care, personal assistance services, and any rules about legally responsible relatives, spouses, guardians, or live-in caregivers being paid.
 3. If the person is not clearly eligible, explain what additional facts would be needed.
 4. If Medicaid eligibility is a prerequisite, say that clearly.
 5. Note any exclusions related to assisted living, group home residence, age, diagnosis category, or caregiver relationship.
-6. Cite the specific document, section, and absolute page number (as it appears in the full document, not the page number within the section) as a footnote whenever it is referenced in the answer.
+6. Cite sources as footnotes, one per line, in this exact format:
+   [1] Friendly Waiver Name, Section Name, Page X
+   Reference them inline like: 'Spouses may be paid as attendants.[1]'
+   Each footnote must appear on its own line with a blank line between them.
 7. Be careful and precise: do not assume eligibility unless the documents support it.
 
 {case_summary}
@@ -297,11 +341,12 @@ if st.session_state.intake_submitted:
     st.markdown(case_summary.replace("\n", "  \n"))
 
     if st.button("Run Eligibility Review"):
-        with st.chat_message("assistant"):
-            with st.spinner("Reviewing waiver documents..."):
-                eligibility_prompt = build_eligibility_query(st.session_state.intake_data)
-                response = query_engine.query(eligibility_prompt)
-                st.markdown(map_waiver_names(str(getattr(response, "response", "") or "")))
+        with st.spinner("Reviewing waiver documents..."):
+            eligibility_prompt = build_eligibility_query(st.session_state.intake_data)
+            response = query_engine.query(eligibility_prompt)
+            mapped = map_waiver_names(str(getattr(response, "response", "") or ""))
+            st.session_state.messages.append({"role": "assistant", "content": mapped})
+            st.rerun()
 
 # -----------------------------
 # CHAT HISTORY + FOLLOW-UP
@@ -322,10 +367,22 @@ if prompt := st.chat_input("Enter eligibility question here..."):
         with st.chat_message("assistant"):
             with st.spinner("Analyzing structural policy data..."):
                 case_summary = build_case_summary(st.session_state.intake_data)
+                waiver_name_context = "\n".join([f"- {k} = {v}" for k, v in WAIVER_NAME_MAP.items()])
                 full_prompt = (
                     f"State context: {st.session_state.intake_data['state_name']} "
                     f"({st.session_state.intake_data['state_abbr']}). "
-                    f"{case_summary}\n\nQuestion: {prompt}"
+                    f"{case_summary}\n\n"
+                    f"When citing documents, always use these friendly names instead of file IDs or raw filenames:\n"
+                    f"{waiver_name_context}\n\n"
+                    f"Question: {prompt}\n\n"
+                    f"Please answer in this format:\n"
+                    f"1. Direct answer to the question\n"
+                    f"2. Supporting details from the documents\n"
+                    f"3. Any relevant restrictions or caveats\n\n"
+                    f"Cite sources as footnotes, one per line, in this exact format:\n"
+                    f"[1] Friendly Waiver Name, Section Name, Page X\n"
+                    f"Reference them inline like: 'Spouses may be paid as attendants.[1]'\n"
+                    f"Each footnote must appear on its own line with a blank line between them."
                 )
                 response = query_engine.query(full_prompt)
                 mapped = map_waiver_names(response.response)
