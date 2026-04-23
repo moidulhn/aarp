@@ -101,13 +101,15 @@ HOUSING_OPTIONS = [
 MEDICAID_OPTIONS = [
     "Yes, they are enrolled in Medicaid", 
     "Yes, they are eligble for Mediciad but they are not enrolled",
-    "No, they are not eligible for Medicaid"
+    "No, they are not eligible for Medicaid",
+    "They do not know if they are eligible for Medicaid"
 ]
 
 MEDICAID_STATUS_MAP = {
     "Yes, they are enrolled in Medicaid": "Enrolled",
     "Yes, they are eligble for Mediciad but they are not enrolled": "Eligible but not enrolled\nNOTE: The care recipient must be enrolled in Medicaid in order to qualify for a waiver.",
-    "No, they are not eligible for Medicaid": "Not eligible"
+    "No, they are not eligible for Medicaid": "Not eligible",
+    "They do not know if they are eligible for Medicaid": "Unsure"
 }
 
 WAIVER_NAME_MAP = {
@@ -225,13 +227,15 @@ st.subheader("Client Intake")
 with st.form("client_intake_form"):
     st.markdown("### Current healthcare coverage")
     medicaid_status = st.radio("Is the person on or eligible for Medicaid?", 
-                               MEDICAID_OPTIONS)
+                               MEDICAID_OPTIONS,
+                               index=0)
     
     st.markdown("### Location")
     selected_state_name = st.selectbox("State", options=list(STATE_MAP.keys()), index=0)
     congregate_setting = st.radio(
         "Does the person live in an assisted living facility or a group home?",
-        ["Yes", "No", "Unknown"]
+        ["Yes", "No", "Unknown"],
+        index=1
     )
 
     st.markdown("### Patient characteristics")
@@ -246,8 +250,10 @@ with st.form("client_intake_form"):
         other_condition_text = st.text_input("Specify other condition")
 
     st.markdown("### Caregiver information")
-    relationship = st.selectbox("What is your relationship to the person?", RELATIONSHIP_OPTIONS)
-    lives_with_person = st.radio("Do you live with the person?", HOUSING_OPTIONS)
+    relationship = st.selectbox("What is your relationship to the person?", RELATIONSHIP_OPTIONS,
+    index=RELATIONSHIP_OPTIONS.index("Adult child"))
+    lives_with_person = st.radio("Do you live with the person?", HOUSING_OPTIONS,
+    index=1)
     submitted = st.form_submit_button("Save Intake Information")
 
 if submitted:
