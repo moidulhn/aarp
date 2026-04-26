@@ -1,6 +1,9 @@
 import re
 import streamlit as st
 import os
+import json
+from datetime import datetime, timezone
+from pathlib import Path
 from dotenv import load_dotenv
 from llama_index.core import StorageContext, load_index_from_storage, Settings
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
@@ -62,6 +65,16 @@ if "intake_data" not in st.session_state:
 
 if "selected_state_abbr" not in st.session_state:
     st.session_state.selected_state_abbr = None
+
+# -----------------------------
+# DEBUG SETTINGS
+# -----------------------------
+if "debug_show_chunks" not in st.session_state:
+    st.session_state.debug_show_chunks = False
+if "last_retrieved_chunks" not in st.session_state:
+    st.session_state.last_retrieved_chunks = []
+if "last_eval_path" not in st.session_state:
+    st.session_state.last_eval_path = None
 
 # -----------------------------
 # STATE CONFIG
@@ -334,6 +347,92 @@ Please answer in this format:
 5. Additional information needed
 """.strip()
 
+def _extract_chunks_from_response(response) -> list[dict]:
+    src_nodes = getattr(response, "source_nodes", None) or []
+    chunks: list[dict] = []
+    for nws in src_nodes:
+        node = getattr(nws, "node", None)
+        if node is None:
+            continue
+        meta = getattr(node, "metadata", {}) or {}
+        score = getattr(nws, "score", None)
+        try:
+            text = node.get_content()
+        except Exception:
+            text = str(getattr(node, "text", "")) or ""
+        chunks.append(
+            {
+                "score": score,
+                "metadata": {
+                    "file_name": meta.get("file_name"),
+                    "page_number": meta.get("page_number"),
+                    "state": meta.get("state"),
+                },
+                "text": text,
+            }
+        )
+    return chunks
+
+
+def _write_eval_artifact(
+    *,
+    kind: str,
+    intake_data: dict,
+    prompt: str,
+    answer: str,
+    retrieved_chunks: list[dict],
+) -> str | None:
+    try:
+        eval_dir = Path("eval")
+        eval_dir.mkdir(parents=True, exist_ok=True)
+        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        state = (intake_data.get("state_abbr") or intake_data.get("state_name") or "NA").replace(" ", "_")
+        path = eval_dir / f"{ts}_{state}_{kind}.json"
+        payload = {
+            "timestamp_utc": ts,
+            "kind": kind,
+            "intake_data": intake_data,
+            "prompt": prompt,
+            "answer": answer,
+            "retrieved_chunks": retrieved_chunks,
+        }
+        path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+        return str(path)
+    except Exception:
+        return None
+
+
+def render_retrieved_chunks(chunks: list[dict]) -> None:
+    """Render retrieved context chunks for troubleshooting."""
+    if not st.session_state.get("debug_show_chunks"):
+        return
+
+    with st.expander(f"Debug: retrieved chunks ({len(chunks)})", expanded=False):
+        if not chunks:
+            st.caption("No retrieved chunks captured for the last run.")
+            return
+        for i, c in enumerate(chunks, start=1):
+            meta = (c.get("metadata") or {}) if isinstance(c, dict) else {}
+            score = c.get("score") if isinstance(c, dict) else None
+            st.markdown(
+                f"**[{i}] score={score} | file={meta.get('file_name')} | page={meta.get('page_number')} | state={meta.get('state')}**"
+            )
+            st.text((c.get("text") if isinstance(c, dict) else "") or "")
+
+
+def _save_and_persist_debug(*, kind: str, intake_data: dict, prompt: str, response) -> str:
+    answer = str(getattr(response, "response", "") or "")
+    chunks = _extract_chunks_from_response(response)
+    st.session_state.last_retrieved_chunks = chunks
+    out_path = _write_eval_artifact(
+        kind=kind,
+        intake_data=intake_data,
+        prompt=prompt,
+        answer=answer,
+        retrieved_chunks=chunks,
+    )
+    st.session_state.last_eval_path = out_path
+    return answer
 
 # -----------------------------
 # ELIGIBILITY REVIEW SECTION
@@ -350,7 +449,13 @@ if st.session_state.intake_submitted:
         with st.spinner("Reviewing waiver documents..."):
             eligibility_prompt = build_eligibility_query(st.session_state.intake_data)
             response = query_engine.query(eligibility_prompt)
-            mapped = map_waiver_names(str(getattr(response, "response", "") or ""))
+            answer = _save_and_persist_debug(
+                kind="eligibility_review",
+                intake_data=st.session_state.intake_data,
+                prompt=eligibility_prompt,
+                response=response,
+            )
+            mapped = map_waiver_names(answer)
             st.session_state.messages.append({"role": "assistant", "content": mapped})
             st.rerun()
 
@@ -359,6 +464,11 @@ if st.session_state.intake_submitted:
 # -----------------------------
 st.divider()
 st.subheader("Ask a Follow-up Question")
+
+if st.session_state.get("debug_show_chunks"):
+    render_retrieved_chunks(st.session_state.get("last_retrieved_chunks") or [])
+    if st.session_state.get("last_eval_path"):
+        st.caption(f"Saved eval artifact: {st.session_state.last_eval_path}")
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
@@ -391,7 +501,13 @@ if prompt := st.chat_input("Enter eligibility question here..."):
                     f"Each footnote must appear on its own line with a blank line between them."
                 )
                 response = query_engine.query(full_prompt)
-                mapped = map_waiver_names(response.response)
+                answer = _save_and_persist_debug(
+                    kind="followup",
+                    intake_data=st.session_state.intake_data,
+                    prompt=full_prompt,
+                    response=response,
+                )
+                mapped = map_waiver_names(answer)
                 st.markdown(mapped)
 
         st.session_state.messages.append({"role": "assistant", "content": mapped})
@@ -404,6 +520,12 @@ if prompt := st.chat_input("Enter eligibility question here..."):
 with st.sidebar:
     st.markdown("### System Status")
     st.success("Hybrid Search Active")
+
+    st.markdown("### Debug")
+    st.session_state.debug_show_chunks = st.checkbox(
+        "Show retrieved chunks",
+        value=st.session_state.debug_show_chunks,
+    )
 
     st.markdown("### Selected State")
     if st.session_state.intake_submitted:
@@ -418,6 +540,8 @@ with st.sidebar:
 
     if st.button("Reset Conversation"):
         st.session_state.messages = []
+        st.session_state.last_retrieved_chunks = []
+        st.session_state.last_eval_path = None
         st.rerun()
 
     if st.button("Clear Intake + Conversation"):
@@ -425,4 +549,6 @@ with st.sidebar:
         st.session_state.intake_data = {}
         st.session_state.intake_submitted = False
         st.session_state.selected_state_abbr = None
+        st.session_state.last_retrieved_chunks = []
+        st.session_state.last_eval_path = None
         st.rerun()
