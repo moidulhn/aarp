@@ -75,9 +75,8 @@ STATE_MAP = {
 
 CONDITION_OPTIONS = [
     "Intellectual/Developmental Disabilities",
-    "Adults who are Ages 65+ or With Physical Disabilities",
+    "Physical Disabilities",
     "Traumatic Brain and/or Spinal Cord Injuries",
-    "Medically Fragile/Technology Dependent Children",
     "Mental Health",
     "Autism",
     "HIV/AIDS",
@@ -225,13 +224,15 @@ st.subheader("Client Intake")
 with st.form("client_intake_form"):
     st.markdown("### Current healthcare coverage")
     medicaid_status = st.radio("Is the person on or eligible for Medicaid?", 
-                               MEDICAID_OPTIONS)
+                               MEDICAID_OPTIONS,
+                               index=0)
     
     st.markdown("### Location")
     selected_state_name = st.selectbox("State", options=list(STATE_MAP.keys()), index=0)
     congregate_setting = st.radio(
         "Does the person live in an assisted living facility or a group home?",
-        ["Yes", "No", "Unknown"]
+        ["Yes", "No", "Unknown"],
+        index=1
     )
 
     st.markdown("### Patient characteristics")
@@ -246,8 +247,8 @@ with st.form("client_intake_form"):
         other_condition_text = st.text_input("Specify other condition")
 
     st.markdown("### Caregiver information")
-    relationship = st.selectbox("What is your relationship to the person?", RELATIONSHIP_OPTIONS)
-    lives_with_person = st.radio("Do you live with the person?", HOUSING_OPTIONS)
+    relationship = st.selectbox("What is your relationship to the person?", RELATIONSHIP_OPTIONS, index=2)
+    lives_with_person = st.radio("Do you live with the person?", HOUSING_OPTIONS, index=1)
     submitted = st.form_submit_button("Save Intake Information")
 
 if submitted:
