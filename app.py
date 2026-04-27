@@ -31,12 +31,18 @@ st.markdown("""
     section[data-testid="stSidebar"] { background-color: #f4f4f4 !important; border-right: 2px solid #E60000; }
     section[data-testid="stSidebar"] * { color: #000000 !important; }
     h1, h2, h3 { color: #E60000 !important; }
-    ::selection { background: #E60000; color: #FFFFFF !important; }
+    div[data-testid="stForm"] h3 { font-size: 1.1rem !important; font-weight: bold; }
     div[data-testid="stChatMessageContent"] { background-color: #f9f9f9; border: 1px solid #ddd; border-radius: 4px; padding: 0.5rem; }
-    div.stButton > button { background-color: #E60000; color: white !important; border: none; font-weight: bold; border-radius: 4px; }
-    div.stButton > button:hover { background-color: #cc0000; color: white !important; }
+    div.stButton > button { background-color: #E60000; color: #FFFFFF !important; border: none; font-weight: bold; border-radius: 4px; }
+    div.stButton > button:hover { background-color: #cc0000; color: #FFFFFF !important; }
+    div.stButton > button p { color: #FFFFFF !important; }
+    div.stButton > button span { color: #FFFFFF !important; }
     div[data-testid="stExpanderDetails"] { background-color: #333333; border-radius: 8px; padding: 15px; }
     div[data-testid="stExpanderDetails"] * { color: #FFFFFF !important; }
+    div[data-testid="stForm"] label { font-size: 1rem !important; }
+    div[data-testid="stForm"] p { font-size: 1rem !important; }
+    div[data-testid="stRadio"] label { font-size: 1rem !important; }
+    div[data-testid="stSelectbox"] label { font-size: 1rem !important; }
     /* Prevent auto-scroll on load */
     .main { overflow-anchor: none; }
     html { scroll-behavior: auto !important; }
@@ -284,7 +290,7 @@ if submitted:
 def build_case_summary(data):
     conditions_text = ", ".join(data["conditions"]) if data["conditions"] else "None reported"
 
-    return f"""Case Summary:
+    return f"""
 - Medicaid status: {data['medicaid_status']}
 - Location: {data['state_name']}
 - Lives in assisted living facility or group home: {data['congregate_setting']}
@@ -339,7 +345,7 @@ if st.session_state.intake_submitted:
     st.subheader("Eligibility Review")
 
     case_summary = build_case_summary(st.session_state.intake_data)
-    st.markdown("### Case Summary")
+    st.markdown("#### Case Summary")
     st.markdown(case_summary.replace("\n", "  \n"))
 
     if st.button("Run Eligibility Review"):
