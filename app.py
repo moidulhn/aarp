@@ -313,11 +313,12 @@ Instructions:
 3. If the person is not clearly eligible, explain what additional facts would be needed.
 4. If Medicaid eligibility is a prerequisite, say that clearly.
 5. Note any exclusions related to assisted living, group home residence, age, diagnosis category, or caregiver relationship.
-6. Cite sources as footnotes, one per line, in this exact format:
+6. Based on the case summary, identify the single most applicable waiver for this person and draw your answer primarily from that waiver's documents. Only cite a secondary waiver if it directly adds information the primary waiver does not contain.
+7. Cite sources as footnotes, one per line, in this exact format:
    [1] Friendly Waiver Name, Section Name, Page X
    Reference them inline like: 'Spouses may be paid as attendants.[1]'
    Each footnote must appear on its own line with a blank line between them.
-7. Be careful and precise: do not assume eligibility unless the documents support it.
+8. Be careful and precise: do not assume eligibility unless the documents support it.
 
 {case_summary}
 
@@ -369,13 +370,22 @@ if prompt := st.chat_input("Enter eligibility question here..."):
             with st.spinner("Analyzing structural policy data..."):
                 case_summary = build_case_summary(st.session_state.intake_data)
                 waiver_name_context = "\n".join([f"- {k} = {v}" for k, v in WAIVER_NAME_MAP.items()])
+                conversation_history = "\n".join([
+                    f"{m['role'].upper()}: {m['content']}"
+                    for m in st.session_state.messages
+                ])
+
                 full_prompt = (
                     f"State context: {st.session_state.intake_data['state_name']} "
                     f"({st.session_state.intake_data['state_abbr']}). "
                     f"{case_summary}\n\n"
+                    f"Conversation history so far:\n{conversation_history}\n\n"
                     f"When citing documents, always use these friendly names instead of file IDs or raw filenames:\n"
                     f"{waiver_name_context}\n\n"
                     f"Question: {prompt}\n\n"
+                    f"Based on the case summary, identify the single most applicable waiver for this person "
+                    f"and draw your answer primarily from that waiver's documents. "
+                    f"Only cite a secondary waiver if it directly adds information the primary waiver does not contain.\n\n"
                     f"Please answer in this format:\n"
                     f"1. Direct answer to the question\n"
                     f"2. Supporting details from the documents\n"
