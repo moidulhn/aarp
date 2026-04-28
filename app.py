@@ -95,6 +95,7 @@ RELATIONSHIP_OPTIONS = [
     "Spouse",
     "Legal guardian",
     "Adult child",
+    "Adult grandchild",
     "Other relative",
     "Friend",
     "Other",
@@ -108,14 +109,16 @@ HOUSING_OPTIONS = [
 
 MEDICAID_OPTIONS = [
     "Yes, they are enrolled in Medicaid", 
-    "Yes, they are eligble for Mediciad but they are not enrolled",
-    "No, they are not eligible for Medicaid"
+    "Yes, they are eligble for Medicaid but they are not enrolled",
+    "No, they are not eligible for Medicaid",
+    "Unknown"
 ]
 
 MEDICAID_STATUS_MAP = {
     "Yes, they are enrolled in Medicaid": "Enrolled",
-    "Yes, they are eligble for Mediciad but they are not enrolled": "Eligible but not enrolled\nNOTE: The care recipient must be enrolled in Medicaid in order to qualify for a waiver.",
-    "No, they are not eligible for Medicaid": "Not eligible"
+    "Yes, they are eligble for Medicaid but they are not enrolled": "Eligible but not enrolled\nNOTE: The care recipient must be enrolled in Medicaid in order to qualify for a waiver.",
+    "No, they are not eligible for Medicaid": "Not eligible",
+    "Unknown": "Unknown\nNOTE: The care recipient must be enrolled in Medicaid in order to qualify for a waiver."
 }
 
 WAIVER_NAME_MAP = {
