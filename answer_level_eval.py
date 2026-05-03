@@ -103,40 +103,36 @@ Model Answer:
 
 Rubrics:
 
-Accuracy:
-5 = All factual claims are correct and consistent with the reference answer.
-4 = Mostly accurate, with only minor imprecision.
-3 = Mix of correct and incorrect or unsupported claims.
-2 = Several important inaccuracies or misleading claims.
-1 = Largely incorrect, names the wrong program/waiver, or contradicts the reference answer.
+Accuracy - is the info correct?
+5 = All claims are correct, consistent with the reference answer, and match the correct state and waiver/program
+4 = Mostly correct, minor imprecision, but state and program are correct
+3 = Some incorrect or unsupported claims
+2 = Important inaccuracies or confusing information
+1 = Wrong state, wrong program/waiver, or contradicts reference
 
-Completeness:
-5 = Covers all key points needed to answer the question, including important conditions and restrictions.
-4 = Covers most key points, with only minor omissions.
-3 = Covers some key points but misses important details.
-2 = Omits major information needed for a useful answer.
-1 = Minimal or no useful coverage of the reference answer.
 
-Relevance:
-5 = Directly answers the question with no distracting information.
-4 = Mostly relevant, with small amounts of unnecessary detail.
-3 = Partially relevant but noticeably drifts from the question.
-2 = Mostly loosely related or confusing.
-1 = Off-topic.
+Completeness -Does the answer cover all key points?
+5 = Covers all key points, including eligibility, services, and restrictions
+4 = Covers most key points, minor omissions
+3 = Missing important details (e.g., conditions or limitations)
+2 = Missing major required information
+1 = Very limited or incomplete
 
-Clarity and Readability:
-5 = Clear, well organized, concise, and user-friendly.
-4 = Generally clear, with minor wording or structure issues.
-3 = Understandable but verbose, awkward, or uneven.
-2 = Hard to follow.
-1 = Very unclear.
+Relevance - Does the answer directly address the question?
+5 = Fully focused on the user’s question and correct state context
+4 = Mostly relevant, slight extra info
+3 = Some drift or includes less relevant info
+2 = Largely irrelevant or confusing
+1 = Off-topic or answers for the wrong state
 
-Overall:
-5 = Excellent answer that is accurate, complete, relevant, and clear.
-4 = Good answer with minor issues.
-3 = Usable but has meaningful gaps or risks.
-2 = Poor answer with major issues.
-1 = Not reliable.
+Completeness -Does the answer cover all key points?
+5 = Covers all key points, including eligibility, services, and restrictions
+4 = Covers most key points, minor omissions
+3 = Missing important details (e.g., conditions or limitations)
+2 = Missing major required information
+1 = Very limited or incomplete
+
+
 
 Return only valid JSON matching the requested schema. Each feedback field must be 1 to 2 concise sentences.
 """.strip()
